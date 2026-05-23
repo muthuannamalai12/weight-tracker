@@ -340,10 +340,6 @@ function renderMetrics() {
   document.getElementById('m-total-d').innerHTML =
     `<span class="${delta > 0 ? 'delta-up' : delta < 0 ? 'delta-down' : 'delta-same'}">${dates.length} entries</span>`;
 
-  let streak = 0;
-  const td = new Date();
-  while (entries[fmtDate(td)]) { streak++; td.setDate(td.getDate()-1); }
-  document.getElementById('streak-count').textContent = streak;
 }
 
 // ─── CHARTS ───────────────────────────────────────────────────────────────────
