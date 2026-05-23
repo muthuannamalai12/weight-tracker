@@ -295,7 +295,7 @@ function renderMetrics() {
       document.getElementById(id).textContent = '—';
     });
     ['m-latest-d','m-week-d','m-month-d','m-year-d','m-total-d'].forEach(id => {
-      document.getElementById(id).innerHTML = '<span class="delta-same">no data yet</span>';
+      document.getElementById(id).innerHTML = '<span style="color:#cbd5e1;font-weight:500;">no data yet</span>';
     });
     return;
   }
