@@ -14,7 +14,10 @@ let weekOffset = 0, monthOffset = 0, yearOffset = 0;
 
 // ─── BOOT ─────────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
-  document.getElementById('log-date').value = todayStr();
+  const t = new Date();
+  document.getElementById('log-day').value   = t.getDate();
+  document.getElementById('log-month').value = t.getMonth() + 1;
+  document.getElementById('log-year').value  = t.getFullYear();
   await loadData();
   document.getElementById('loading').style.display = 'none';
   document.getElementById('app').style.display = 'block';
@@ -132,10 +135,16 @@ function sortedDates() { return Object.keys(entries).sort(); }
 
 // ─── LOG ──────────────────────────────────────────────────────────────────────
 async function addEntry() {
-  const date   = document.getElementById('log-date').value;
-  const raw    = parseFloat(document.getElementById('log-weight').value);
-  const note   = document.getElementById('log-note').value.trim();
-  if (!date || isNaN(raw) || raw <= 0) { alert('Please enter a valid date and weight.'); return; }
+  const day   = parseInt(document.getElementById('log-day').value);
+  const month = parseInt(document.getElementById('log-month').value);
+  const year  = parseInt(document.getElementById('log-year').value);
+  const raw   = parseFloat(document.getElementById('log-weight').value);
+  const note  = document.getElementById('log-note').value.trim();
+  if (!day || !month || !year || day < 1 || day > 31 || month < 1 || month > 12 || year < 2000) {
+    alert('Please enter a valid day, month and year.'); return;
+  }
+  const date = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+  if (!isNaN(new Date(date)) === false || isNaN(raw) || raw <= 0) { alert('Please enter a valid date and weight.'); return; }
   const kg = fromDisplay(raw);
   const btn = document.getElementById('btn-add');
   btn.disabled = true; btn.textContent = 'Saving…';
@@ -144,6 +153,11 @@ async function addEntry() {
   btn.disabled = false; btn.textContent = 'Save entry';
   document.getElementById('log-weight').value = '';
   document.getElementById('log-note').value = '';
+  // Reset date to today
+  const td = new Date();
+  document.getElementById('log-day').value   = td.getDate();
+  document.getElementById('log-month').value = td.getMonth() + 1;
+  document.getElementById('log-year').value  = td.getFullYear();
   renderAll();
 }
 
