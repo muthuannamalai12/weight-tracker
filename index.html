@@ -155,6 +155,19 @@
       transition: border-color 0.15s, box-shadow 0.15s;
     }
     .log-form input:focus, .log-form textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(29,158,117,0.12); }
+
+    /* White spinner arrows on number inputs in dark mode */
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
+      opacity: 1;
+      filter: invert(1);
+    }
+    @media (prefers-color-scheme: light) {
+      input[type="number"]::-webkit-inner-spin-button,
+      input[type="number"]::-webkit-outer-spin-button {
+        filter: invert(0);
+      }
+    }
     .log-form textarea { resize: none; height: 60px; }
     .btn-save {
       background: var(--accent); color: white; border: none;
