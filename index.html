@@ -165,7 +165,20 @@
       <div class="card">
         <div class="card-title"><i class="ti ti-plus"></i> Log weight</div>
         <div class="log-form">
-          <input type="date" id="log-date">
+          <div style="display:grid;grid-template-columns:2fr 2fr 3fr;gap:8px;">
+            <div>
+              <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em;">Day</label>
+              <input type="number" id="log-day" placeholder="DD" min="1" max="31" style="text-align:center;">
+            </div>
+            <div>
+              <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em;">Month</label>
+              <input type="number" id="log-month" placeholder="MM" min="1" max="12" style="text-align:center;">
+            </div>
+            <div>
+              <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em;">Year</label>
+              <input type="number" id="log-year" placeholder="YYYY" min="2000" max="2099" style="text-align:center;">
+            </div>
+          </div>
           <input type="number" id="log-weight" placeholder="Weight (e.g. 72.5)" step="0.1" min="0">
           <textarea id="log-note" placeholder="Note (optional)…"></textarea>
           <button class="btn-save" onclick="addEntry()" id="btn-add">Save entry</button>
