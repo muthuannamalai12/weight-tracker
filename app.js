@@ -289,7 +289,16 @@ function renderEntries() {
 // ─── METRICS ──────────────────────────────────────────────────────────────────
 function renderMetrics() {
   const dates = sortedDates();
-  if (!dates.length) return;
+  if (!dates.length) {
+    // Show colored placeholder dashes from the start
+    ['m-latest','m-week','m-month','m-year','m-total'].forEach(id => {
+      document.getElementById(id).textContent = '—';
+    });
+    ['m-latest-d','m-week-d','m-month-d','m-year-d','m-total-d'].forEach(id => {
+      document.getElementById(id).innerHTML = '<span class="delta-same">no data yet</span>';
+    });
+    return;
+  }
   const latest = entries[dates[dates.length-1]].kg;
   const prev   = dates.length > 1 ? entries[dates[dates.length-2]].kg : null;
   const now    = new Date();
