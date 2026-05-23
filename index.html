@@ -4,11 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Weight Tracker</title>
+
+  <!-- Fonts: display=swap so text shows immediately, font loads in bg -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <!-- Icons: preload so they're ready fast -->
+  <link rel="preload" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/fonts/tabler-icons.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -29,102 +33,196 @@
       --radius: 10px;
       --radius-lg: 14px;
     }
-
     @media (prefers-color-scheme: dark) {
       :root {
-        --bg: #141412;
-        --surface: #1e1e1b;
-        --surface2: #272724;
-        --border: rgba(255,255,255,0.1);
-        --border2: rgba(255,255,255,0.18);
-        --text: #f0ede6;
-        --text2: #a0a09a;
-        --text3: #6b6b66;
+        --bg: #141412; --surface: #1e1e1b; --surface2: #272724;
+        --border: rgba(255,255,255,0.1); --border2: rgba(255,255,255,0.18);
+        --text: #f0ede6; --text2: #a0a09a; --text3: #6b6b66;
         --accent-light: #0f3d2c;
       }
     }
 
-    body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    body { font-family: 'DM Sans', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
 
-    #app { display: none; max-width: 780px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+    /* ── LOADING SCREEN ───────────────────────────────────── */
+    #loading {
+      position: fixed; inset: 0; background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 20px; z-index: 999;
+      transition: opacity 0.4s ease;
+    }
+    #loading.fade-out { opacity: 0; pointer-events: none; }
 
+    .load-logo {
+      font-size: 36px;
+      animation: logo-pop 0.6s cubic-bezier(0.34,1.56,0.64,1) both;
+    }
+    @keyframes logo-pop {
+      from { transform: scale(0.5); opacity: 0; }
+      to   { transform: scale(1);   opacity: 1; }
+    }
+
+    .load-title {
+      font-size: 18px; font-weight: 600; color: var(--text);
+      animation: fade-up 0.5s 0.15s ease both;
+    }
+    @keyframes fade-up {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Animated progress bar */
+    .load-bar-track {
+      width: 160px; height: 3px; background: var(--border);
+      border-radius: 99px; overflow: hidden;
+      animation: fade-up 0.5s 0.2s ease both;
+    }
+    .load-bar-fill {
+      height: 100%; width: 0%; background: var(--accent);
+      border-radius: 99px;
+      transition: width 0.4s ease;
+    }
+
+    .load-status {
+      font-size: 12px; color: var(--text3);
+      animation: fade-up 0.5s 0.25s ease both;
+      min-height: 16px;
+    }
+
+    /* Skeleton shimmer for metric cards */
+    .skeleton {
+      background: var(--surface2);
+      border-radius: var(--radius);
+      position: relative; overflow: hidden;
+    }
+    .skeleton::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.15) 50%, transparent 100%);
+      animation: shimmer 1.2s infinite;
+    }
+    @media (prefers-color-scheme: dark) {
+      .skeleton::after { background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.07) 50%, transparent 100%); }
+    }
+    @keyframes shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+
+    /* App fade-in */
+    #app {
+      display: none; max-width: 780px; margin: 0 auto; padding: 1.5rem 1rem 3rem;
+      animation: app-in 0.4s ease both;
+    }
+    @keyframes app-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+    /* ── HEADER ───────────────────────────────────────────── */
     .app-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 10px; }
     .app-title { font-size: 22px; font-weight: 600; }
     .header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-
     .streak-badge { display: inline-flex; align-items: center; gap: 4px; background: var(--accent-light); color: var(--accent-dark); border-radius: 99px; padding: 4px 12px; font-size: 12px; font-weight: 500; }
     .unit-toggle { display: flex; border: 0.5px solid var(--border2); border-radius: var(--radius); overflow: hidden; }
     .unit-toggle button { border: none; background: transparent; padding: 6px 14px; font-size: 13px; cursor: pointer; color: var(--text2); font-family: inherit; }
     .unit-toggle button.active { background: var(--surface2); color: var(--text); font-weight: 500; }
 
+    /* ── METRICS ──────────────────────────────────────────── */
     .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 1.5rem; }
     .metric-card { background: var(--surface2); border-radius: var(--radius); padding: 14px 16px; }
     .metric-label { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
     .metric-value { font-size: 20px; font-weight: 600; font-family: 'DM Mono', monospace; }
     .metric-delta { font-size: 12px; margin-top: 4px; }
-    .delta-up { color: var(--danger); }
-    .delta-down { color: var(--accent); }
-    .delta-same { color: var(--text3); }
+    .delta-up   { color: #f87171; font-weight: 500; }   /* bright red — visible on dark+light */
+    .delta-down { color: #34d399; font-weight: 500; }   /* bright green */
+    .delta-same { color: #94a3b8; font-weight: 500; }   /* slate — visible on both */
 
-    .tabs { display: flex; gap: 0; border-bottom: 0.5px solid var(--border); margin-bottom: 1.5rem; overflow-x: auto; }
+    /* ── TABS ─────────────────────────────────────────────── */
+    .tabs { display: flex; border-bottom: 0.5px solid var(--border); margin-bottom: 1.5rem; overflow-x: auto; }
     .tab { background: none; border: none; padding: 10px 16px; font-size: 14px; cursor: pointer; color: var(--text2); font-family: inherit; border-bottom: 2px solid transparent; margin-bottom: -0.5px; white-space: nowrap; display: flex; align-items: center; gap: 5px; }
     .tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 500; }
     .tab-section { display: none; }
     .tab-section.active { display: block; }
 
+    /* ── CARDS ────────────────────────────────────────────── */
     .card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 1.25rem; margin-bottom: 1rem; }
-    .card-title { font-size: 14px; font-weight: 500; margin-bottom: 1rem; display: flex; align-items: center; gap: 6px; color: var(--text); }
+    .card-title { font-size: 14px; font-weight: 500; margin-bottom: 1rem; display: flex; align-items: center; gap: 6px; }
 
+    /* ── LOG FORM ─────────────────────────────────────────── */
     .log-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
     @media (max-width: 560px) { .log-grid { grid-template-columns: 1fr; } }
     .log-form { display: flex; flex-direction: column; gap: 10px; }
-    .log-form input, .log-form textarea { width: 100%; padding: 9px 12px; border: 0.5px solid var(--border2); border-radius: var(--radius); font-family: inherit; font-size: 14px; background: var(--bg); color: var(--text); outline: none; }
+    .log-form input, .log-form textarea {
+      width: 100%; padding: 9px 12px;
+      border: 0.5px solid var(--border2); border-radius: var(--radius);
+      font-family: inherit; font-size: 14px;
+      background: var(--bg); color: var(--text); outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
     .log-form input:focus, .log-form textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(29,158,117,0.12); }
-    .log-form textarea { resize: none; height: 64px; }
-    .btn-save { background: var(--accent); color: white; border: none; border-radius: var(--radius); padding: 10px; font-family: inherit; font-size: 14px; font-weight: 500; cursor: pointer; width: 100%; }
+    .log-form textarea { resize: none; height: 60px; }
+    .btn-save {
+      background: var(--accent); color: white; border: none;
+      border-radius: var(--radius); padding: 10px;
+      font-family: inherit; font-size: 14px; font-weight: 500;
+      cursor: pointer; width: 100%;
+      transition: background 0.15s, transform 0.1s;
+    }
     .btn-save:hover { background: var(--accent-dark); }
+    .btn-save:active { transform: scale(0.98); }
     .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
 
+    /* ── ENTRIES ──────────────────────────────────────────── */
     .entries-list { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; }
-    .entry-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-radius: var(--radius); background: var(--surface2); }
+    .entry-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-radius: var(--radius); background: var(--surface2); animation: entry-in 0.2s ease both; }
+    @keyframes entry-in { from { opacity:0; transform: translateX(-6px); } to { opacity:1; transform: none; } }
     .entry-date { font-size: 13px; color: var(--text2); }
     .entry-note { font-size: 11px; color: var(--text3); margin-top: 2px; }
     .entry-weight { font-size: 14px; font-weight: 600; font-family: 'DM Mono', monospace; }
-    .entry-del { background: none; border: none; cursor: pointer; color: var(--text3); font-size: 18px; padding: 0 4px; line-height: 1; }
+    .entry-del { background: none; border: none; cursor: pointer; color: var(--text3); font-size: 18px; padding: 0 4px; line-height: 1; transition: color 0.15s; }
     .entry-del:hover { color: var(--danger); }
-    .empty-state { text-align: center; padding: 2rem; color: var(--text3); font-size: 14px; line-height: 1.7; }
+    .empty-state { text-align: center; padding: 2rem; color: var(--text3); font-size: 14px; line-height: 1.8; }
 
+    /* ── NAV ──────────────────────────────────────────────── */
     .nav-row { display: flex; align-items: center; gap: 8px; margin-bottom: 1rem; }
-    .nav-btn { background: none; border: 0.5px solid var(--border2); border-radius: var(--radius); padding: 6px 10px; font-size: 13px; cursor: pointer; color: var(--text2); font-family: inherit; }
+    .nav-btn { background: none; border: 0.5px solid var(--border2); border-radius: var(--radius); padding: 6px 10px; font-size: 13px; cursor: pointer; color: var(--text2); font-family: inherit; transition: background 0.15s; }
     .nav-btn:hover { background: var(--surface2); }
     .nav-label { font-size: 15px; font-weight: 500; flex: 1; }
 
     .chart-container { position: relative; width: 100%; }
 
+    /* ── BMI / GOAL ───────────────────────────────────────── */
     .bmi-bar { height: 8px; border-radius: 4px; background: linear-gradient(to right, #5DCAA5, #1D9E75, #EF9F27, #D85A30); margin: 10px 0 6px; position: relative; }
-    .bmi-marker { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: var(--text); top: -2px; transform: translateX(-50%); transition: left 0.4s; border: 2px solid var(--surface); }
+    .bmi-marker { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: var(--text); top: -2px; transform: translateX(-50%); transition: left 0.5s cubic-bezier(0.34,1.56,0.64,1); border: 2px solid var(--surface); }
     .bmi-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--text3); }
-
     .goal-progress-wrap { height: 6px; border-radius: 3px; background: var(--border); margin-top: 8px; overflow: hidden; }
-    .goal-progress-bar { height: 100%; border-radius: 3px; background: var(--accent); transition: width 0.4s; }
+    .goal-progress-bar { height: 100%; border-radius: 3px; background: var(--accent); transition: width 0.5s ease; }
 
-    .loading-overlay { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 999; flex-direction: column; gap: 12px; }
-    .spinner { width: 28px; height: 28px; border: 2.5px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
+    /* ── SYNC INDICATOR ───────────────────────────────────── */
     .sync-indicator { font-size: 12px; color: var(--text3); display: flex; align-items: center; gap: 5px; }
-    .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+    .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); transition: background 0.3s; }
     .sync-dot.syncing { background: var(--warn); animation: pulse 1s infinite; }
+    .sync-dot.error   { background: var(--danger); }
     @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+    /* ── ERROR BANNER ─────────────────────────────────────── */
+    #error-banner {
+      display: none; margin-bottom: 1rem;
+      background: #fcebeb; border: 0.5px solid #f09595;
+      color: #a32d2d; border-radius: var(--radius);
+      padding: 10px 14px; font-size: 13px; line-height: 1.5;
+    }
+    @media (prefers-color-scheme: dark) {
+      #error-banner { background: #2a1010; border-color: #791f1f; color: #f09595; }
+    }
   </style>
 </head>
 <body>
 
-<div class="loading-overlay" id="loading">
-  <div class="spinner"></div>
-  <span style="font-size:14px;color:var(--text2);">Loading your data…</span>
+<!-- LOADING SCREEN -->
+<div id="loading">
+  <div class="load-logo">⚖️</div>
+  <div class="load-title">Weight Tracker</div>
+  <div class="load-bar-track"><div class="load-bar-fill" id="load-bar"></div></div>
+  <div class="load-status" id="load-status">Connecting…</div>
 </div>
 
+<!-- MAIN APP -->
 <div id="app">
   <div class="app-header">
     <div style="display:flex;align-items:center;gap:10px;">
@@ -142,6 +240,8 @@
       </div>
     </div>
   </div>
+
+  <div id="error-banner" id="error-banner"></div>
 
   <div class="metrics-grid">
     <div class="metric-card"><div class="metric-label">Latest</div><div class="metric-value" id="m-latest">—</div><div class="metric-delta" id="m-latest-d"></div></div>
@@ -282,6 +382,9 @@
   </div>
 </div>
 
-<script src="app.js"></script>
+<!-- Scripts deferred — don't block render -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+<script src="app.js" defer></script>
 </body>
 </html>
