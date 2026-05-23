@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weight Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f7f6f2;
+      --surface: #ffffff;
+      --surface2: #f0ede6;
+      --border: rgba(0,0,0,0.1);
+      --border2: rgba(0,0,0,0.18);
+      --text: #1a1a18;
+      --text2: #6b6b66;
+      --text3: #a0a09a;
+      --accent: #1D9E75;
+      --accent-light: #e1f5ee;
+      --accent-dark: #0f6e56;
+      --danger: #d85a30;
+      --warn: #ba7517;
+      --radius: 10px;
+      --radius-lg: 14px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #141412;
+        --surface: #1e1e1b;
+        --surface2: #272724;
+        --border: rgba(255,255,255,0.1);
+        --border2: rgba(255,255,255,0.18);
+        --text: #f0ede6;
+        --text2: #a0a09a;
+        --text3: #6b6b66;
+        --accent-light: #0f3d2c;
+      }
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* AUTH */
+    #auth-screen {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .auth-card {
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 2.5rem;
+      width: 100%;
+      max-width: 400px;
+    }
+    .auth-logo { font-size: 28px; font-weight: 600; margin-bottom: 0.25rem; }
+    .auth-sub { font-size: 14px; color: var(--text2); margin-bottom: 2rem; }
+    .auth-tabs { display: flex; gap: 0; border-bottom: 0.5px solid var(--border); margin-bottom: 1.5rem; }
+    .auth-tab { background: none; border: none; padding: 8px 16px; font-size: 14px; cursor: pointer; color: var(--text2); font-family: inherit; border-bottom: 2px solid transparent; margin-bottom: -0.5px; }
+    .auth-tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 500; }
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; font-size: 13px; color: var(--text2); margin-bottom: 5px; }
+    .form-group input { width: 100%; padding: 10px 12px; border: 0.5px solid var(--border2); border-radius: var(--radius); font-family: inherit; font-size: 14px; background: var(--bg); color: var(--text); outline: none; }
+    .form-group input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(29,158,117,0.12); }
+    .btn { width: 100%; padding: 11px; border: none; border-radius: var(--radius); font-family: inherit; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { background: var(--accent-dark); }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+    .auth-error { color: var(--danger); font-size: 13px; margin-top: 8px; text-align: center; min-height: 20px; }
+    .auth-divider { text-align: center; color: var(--text3); font-size: 12px; margin: 1rem 0; }
+
+    /* MAIN APP */
+    #app { display: none; max-width: 780px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+
+    .app-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 10px; }
+    .app-title { font-size: 22px; font-weight: 600; }
+    .header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+    .streak-badge { display: inline-flex; align-items: center; gap: 4px; background: var(--accent-light); color: var(--accent-dark); border-radius: 99px; padding: 4px 12px; font-size: 12px; font-weight: 500; }
+    .unit-toggle { display: flex; border: 0.5px solid var(--border2); border-radius: var(--radius); overflow: hidden; }
+    .unit-toggle button { border: none; background: transparent; padding: 6px 14px; font-size: 13px; cursor: pointer; color: var(--text2); font-family: inherit; }
+    .unit-toggle button.active { background: var(--surface2); color: var(--text); font-weight: 500; }
+    .sign-out-btn { background: none; border: 0.5px solid var(--border2); border-radius: var(--radius); padding: 6px 12px; font-size: 13px; cursor: pointer; color: var(--text2); font-family: inherit; display: flex; align-items: center; gap: 5px; }
+    .sign-out-btn:hover { background: var(--surface2); }
+
+    /* METRICS */
+    .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 1.5rem; }
+    .metric-card { background: var(--surface2); border-radius: var(--radius); padding: 14px 16px; }
+    .metric-label { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+    .metric-value { font-size: 20px; font-weight: 600; font-family: 'DM Mono', monospace; }
+    .metric-delta { font-size: 12px; margin-top: 4px; }
+    .delta-up { color: var(--danger); }
+    .delta-down { color: var(--accent); }
+    .delta-same { color: var(--text3); }
+
+    /* TABS */
+    .tabs { display: flex; gap: 0; border-bottom: 0.5px solid var(--border); margin-bottom: 1.5rem; overflow-x: auto; }
+    .tab { background: none; border: none; padding: 10px 16px; font-size: 14px; cursor: pointer; color: var(--text2); font-family: inherit; border-bottom: 2px solid transparent; margin-bottom: -0.5px; white-space: nowrap; display: flex; align-items: center; gap: 5px; }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 500; }
+    .tab-section { display: none; }
+    .tab-section.active { display: block; }
+
+    /* CARDS */
+    .card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 1.25rem; margin-bottom: 1rem; }
+    .card-title { font-size: 14px; font-weight: 500; margin-bottom: 1rem; display: flex; align-items: center; gap: 6px; color: var(--text); }
+
+    /* LOG */
+    .log-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 560px) { .log-grid { grid-template-columns: 1fr; } }
+    .log-form { display: flex; flex-direction: column; gap: 10px; }
+    .log-form input, .log-form textarea { width: 100%; padding: 9px 12px; border: 0.5px solid var(--border2); border-radius: var(--radius); font-family: inherit; font-size: 14px; background: var(--bg); color: var(--text); outline: none; }
+    .log-form input:focus, .log-form textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(29,158,117,0.12); }
+    .log-form textarea { resize: none; height: 64px; }
+    .btn-save { background: var(--accent); color: white; border: none; border-radius: var(--radius); padding: 10px; font-family: inherit; font-size: 14px; font-weight: 500; cursor: pointer; width: 100%; }
+    .btn-save:hover { background: var(--accent-dark); }
+    .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .entries-list { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; }
+    .entry-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-radius: var(--radius); background: var(--surface2); }
+    .entry-date { font-size: 13px; color: var(--text2); }
+    .entry-note { font-size: 11px; color: var(--text3); margin-top: 2px; }
+    .entry-weight { font-size: 14px; font-weight: 600; font-family: 'DM Mono', monospace; }
+    .entry-del { background: none; border: none; cursor: pointer; color: var(--text3); font-size: 18px; padding: 0 4px; line-height: 1; }
+    .entry-del:hover { color: var(--danger); }
+    .empty-state { text-align: center; padding: 2rem; color: var(--text3); font-size: 14px; line-height: 1.7; }
+
+    /* NAV ROW */
+    .nav-row { display: flex; align-items: center; gap: 8px; margin-bottom: 1rem; }
+    .nav-btn { background: none; border: 0.5px solid var(--border2); border-radius: var(--radius); padding: 6px 10px; font-size: 13px; cursor: pointer; color: var(--text2); font-family: inherit; }
+    .nav-btn:hover { background: var(--surface2); }
+    .nav-label { font-size: 15px; font-weight: 500; flex: 1; }
+
+    /* CHART */
+    .chart-container { position: relative; width: 100%; }
+    .chart-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 8px; font-size: 12px; color: var(--text2); }
+    .legend-dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; margin-right: 4px; }
+
+    /* BMI */
+    .bmi-bar { height: 8px; border-radius: 4px; background: linear-gradient(to right, #5DCAA5, #1D9E75, #EF9F27, #D85A30); margin: 10px 0 6px; position: relative; }
+    .bmi-marker { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: var(--text); top: -2px; transform: translateX(-50%); transition: left 0.4s; border: 2px solid var(--surface); }
+    .bmi-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--text3); }
+
+    .goal-progress-wrap { height: 6px; border-radius: 3px; background: var(--border); margin-top: 8px; overflow: hidden; }
+    .goal-progress-bar { height: 100%; border-radius: 3px; background: var(--accent); transition: width 0.4s; }
+
+    /* LOADING */
+    .loading-overlay { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 999; flex-direction: column; gap: 12px; }
+    .spinner { width: 28px; height: 28px; border: 2.5px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .sync-indicator { font-size: 12px; color: var(--text3); display: flex; align-items: center; gap: 5px; }
+    .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+    .sync-dot.syncing { background: var(--warn); animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+  </style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loading">
+  <div class="spinner"></div>
+  <span style="font-size:14px;color:var(--text2);">Loading…</span>
+</div>
+
+<!-- AUTH -->
+<div id="auth-screen" style="display:none;">
+  <div class="auth-card">
+    <div class="auth-logo">⚖️ Weight Tracker</div>
+    <div class="auth-sub">Track your weight across all devices</div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchAuthTab('login')">Sign in</button>
+      <button class="auth-tab" onclick="switchAuthTab('signup')">Create account</button>
+    </div>
+    <div id="auth-login">
+      <div class="form-group"><label>Email</label><input type="email" id="login-email" placeholder="you@example.com"></div>
+      <div class="form-group"><label>Password</label><input type="password" id="login-password" placeholder="••••••••"></div>
+      <button class="btn btn-primary" onclick="signIn()" id="btn-signin">Sign in</button>
+      <div class="auth-error" id="login-error"></div>
+    </div>
+    <div id="auth-signup" style="display:none;">
+      <div class="form-group"><label>Email</label><input type="email" id="signup-email" placeholder="you@example.com"></div>
+      <div class="form-group"><label>Password</label><input type="password" id="signup-password" placeholder="At least 6 characters"></div>
+      <button class="btn btn-primary" onclick="signUp()" id="btn-signup">Create account</button>
+      <div class="auth-error" id="signup-error"></div>
+    </div>
+    <div class="auth-divider">Data syncs across all your devices</div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app">
+  <div class="app-header">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span class="app-title">⚖️ Weight Tracker</span>
+      <span class="streak-badge"><i class="ti ti-flame"></i> <span id="streak-count">0</span>-day streak</span>
+    </div>
+    <div class="header-right">
+      <span class="sync-indicator"><span class="sync-dot" id="sync-dot"></span><span id="sync-text">Synced</span></span>
+      <div class="unit-toggle">
+        <button id="btn-kg" class="active" onclick="setUnit('kg')">kg</button>
+        <button id="btn-lbs" onclick="setUnit('lbs')">lbs</button>
+      </div>
+      <button class="sign-out-btn" onclick="signOut()"><i class="ti ti-logout"></i> Sign out</button>
+    </div>
+  </div>
+
+  <div class="metrics-grid">
+    <div class="metric-card"><div class="metric-label">Latest</div><div class="metric-value" id="m-latest">—</div><div class="metric-delta" id="m-latest-d"></div></div>
+    <div class="metric-card"><div class="metric-label">Week avg</div><div class="metric-value" id="m-week">—</div><div class="metric-delta" id="m-week-d"></div></div>
+    <div class="metric-card"><div class="metric-label">Month avg</div><div class="metric-value" id="m-month">—</div><div class="metric-delta" id="m-month-d"></div></div>
+    <div class="metric-card"><div class="metric-label">Year avg</div><div class="metric-value" id="m-year">—</div><div class="metric-delta" id="m-year-d"></div></div>
+    <div class="metric-card"><div class="metric-label">Total change</div><div class="metric-value" id="m-total">—</div><div class="metric-delta" id="m-total-d"></div></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('log')"><i class="ti ti-pencil"></i> Log</button>
+    <button class="tab" onclick="switchTab('weekly')"><i class="ti ti-calendar-week"></i> Weekly</button>
+    <button class="tab" onclick="switchTab('monthly')"><i class="ti ti-calendar-month"></i> Monthly</button>
+    <button class="tab" onclick="switchTab('yearly')"><i class="ti ti-chart-line"></i> Yearly</button>
+    <button class="tab" onclick="switchTab('bmi')"><i class="ti ti-heart-rate-monitor"></i> BMI & Goal</button>
+  </div>
+
+  <!-- LOG TAB -->
+  <div class="tab-section active" id="tab-log">
+    <div class="log-grid">
+      <div class="card">
+        <div class="card-title"><i class="ti ti-plus"></i> Log weight</div>
+        <div class="log-form">
+          <input type="date" id="log-date">
+          <input type="number" id="log-weight" placeholder="Weight (e.g. 72.5)" step="0.1" min="0">
+          <textarea id="log-note" placeholder="Note (optional)…"></textarea>
+          <button class="btn-save" onclick="addEntry()" id="btn-add">Save entry</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title"><i class="ti ti-list"></i> Recent entries</div>
+        <div class="entries-list" id="entries-list">
+          <div class="empty-state">No entries yet.<br>Log your first weight above.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- WEEKLY TAB -->
+  <div class="tab-section" id="tab-weekly">
+    <div class="card">
+      <div class="nav-row">
+        <button class="nav-btn" onclick="navWeek(-1)"><i class="ti ti-chevron-left"></i></button>
+        <span class="nav-label" id="week-label"></span>
+        <button class="nav-btn" onclick="navWeek(1)"><i class="ti ti-chevron-right"></i></button>
+      </div>
+      <div class="chart-legend">
+        <span><span class="legend-dot" style="background:#1D9E75;"></span>Daily weight</span>
+        <span><span class="legend-dot" style="background:#EF9F27;border-radius:0;height:2px;width:16px;vertical-align:middle;"></span>Week avg</span>
+      </div>
+      <div class="chart-container" style="height:220px;"><canvas id="chart-week"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Last 8 weeks — weekly averages</div>
+      <div class="chart-container" style="height:200px;"><canvas id="chart-weeks"></canvas></div>
+    </div>
+  </div>
+
+  <!-- MONTHLY TAB -->
+  <div class="tab-section" id="tab-monthly">
+    <div class="card">
+      <div class="nav-row">
+        <button class="nav-btn" onclick="navMonth(-1)"><i class="ti ti-chevron-left"></i></button>
+        <span class="nav-label" id="month-label"></span>
+        <button class="nav-btn" onclick="navMonth(1)"><i class="ti ti-chevron-right"></i></button>
+      </div>
+      <div class="chart-container" style="height:220px;"><canvas id="chart-month"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">12-month rolling averages</div>
+      <div class="chart-container" style="height:200px;"><canvas id="chart-months"></canvas></div>
+    </div>
+  </div>
+
+  <!-- YEARLY TAB -->
+  <div class="tab-section" id="tab-yearly">
+    <div class="card">
+      <div class="nav-row">
+        <button class="nav-btn" onclick="navYear(-1)"><i class="ti ti-chevron-left"></i></button>
+        <span class="nav-label" id="year-label"></span>
+        <button class="nav-btn" onclick="navYear(1)"><i class="ti ti-chevron-right"></i></button>
+      </div>
+      <div class="chart-container" style="height:240px;"><canvas id="chart-year"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">All-time trend</div>
+      <div class="chart-container" style="height:240px;"><canvas id="chart-all"></canvas></div>
+    </div>
+  </div>
+
+  <!-- BMI TAB -->
+  <div class="tab-section" id="tab-bmi">
+    <div class="card">
+      <div class="card-title"><i class="ti ti-ruler"></i> BMI Calculator</div>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
+        <label style="font-size:13px;color:var(--text2);">Height (cm)</label>
+        <input type="number" id="height-input" value="170" min="100" max="250" style="width:90px;padding:8px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);font-family:inherit;font-size:14px;background:var(--bg);color:var(--text);outline:none;" oninput="updateBMI()">
+        <span style="font-size:13px;color:var(--text2);">BMI:</span>
+        <span style="font-size:22px;font-weight:600;font-family:'DM Mono',monospace;" id="bmi-val">—</span>
+        <span style="font-size:13px;font-weight:500;" id="bmi-cat"></span>
+      </div>
+      <div class="bmi-bar"><div class="bmi-marker" id="bmi-marker" style="left:0%;"></div></div>
+      <div class="bmi-labels">
+        <span>Underweight &lt;18.5</span><span>Normal 18.5–25</span><span>Overweight 25–30</span><span>Obese &gt;30</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title"><i class="ti ti-target"></i> Goal weight</div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <label style="font-size:13px;color:var(--text2);">Target:</label>
+        <input type="number" id="goal-input" placeholder="e.g. 70" step="0.1" style="width:100px;padding:8px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);font-family:inherit;font-size:14px;background:var(--bg);color:var(--text);outline:none;" oninput="updateGoal()">
+        <span style="font-size:13px;color:var(--text2);" id="goal-unit">kg</span>
+        <button style="background:var(--accent);color:white;border:none;border-radius:var(--radius);padding:8px 14px;font-family:inherit;font-size:13px;cursor:pointer;" onclick="saveGoal()">Save goal</button>
+      </div>
+      <div class="goal-progress-wrap"><div class="goal-progress-bar" id="goal-bar" style="width:0%;"></div></div>
+      <div style="font-size:13px;color:var(--text2);margin-top:6px;" id="goal-status"></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><i class="ti ti-activity"></i> BMI history</div>
+      <div class="chart-container" style="height:220px;"><canvas id="chart-bmi"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
