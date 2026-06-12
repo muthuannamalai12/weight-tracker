@@ -440,27 +440,44 @@ function renderWeekly() {
   if (avgV) ds.push(dashLine(avgV, 7, '#EF9F27'));
   makeChart('chart-week','bar', days, ds);
 
-  // 8 weeks chart — navigable, anchored at weeks8Offset
-  const wl=[], wa=[];
-  // end week = weekOffset + weeks8Offset, start = that - 7
-  const endW = weeks8Offset;
-  const startW = endW - 7;
+  // Weekly averages trend — each bar = one week's average, navigable
+  const WEEKS_SHOW = 8;
+  const endW   = weeks8Offset;
+  const startW = endW - (WEEKS_SHOW - 1);
+  const wl = [], wa = [];
   for (let w = startW; w <= endW; w++) {
-    const {mon:wm} = weekRange(w);
-    const vs=[];
-    for (let i=0;i<7;i++){const d=new Date(wm);d.setDate(wm.getDate()+i);const e=entries[fmtDate(d)];if(e)vs.push(toDisplay(e.kg));}
-    wl.push(wm.toLocaleDateString('en',{month:'short',day:'numeric'}));
+    const { mon: wm } = weekRange(w);
+    const vs = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(wm); d.setDate(wm.getDate() + i);
+      const e = entries[fmtDate(d)]; if (e) vs.push(toDisplay(e.kg));
+    }
+    // Label: "Feb 23" style
+    wl.push(wm.toLocaleDateString('en', { month: 'short', day: 'numeric' }));
     wa.push(avg(vs));
   }
-  // Update label
+
+  // Overall average across all shown weeks (only non-null)
+  const overallAvg = avg(wa.filter(v => v !== null));
+
+  // Nav label: date range
   const w8start = weekRange(startW).mon;
   const w8end   = weekRange(endW).sun;
   const w8lbl   = document.getElementById('weeks8-label');
   if (w8lbl) w8lbl.textContent =
-    w8start.toLocaleDateString('en',{month:'short',day:'numeric'}) + ' – ' +
-    w8end.toLocaleDateString('en',{month:'short',day:'numeric',year:'numeric'});
-  makeChart('chart-weeks','line',wl,[lineSet(wa,'#1D9E75')],
-    {scales:{...BASE_OPT.scales,x:{ticks:{color:TICK_COLOR,maxRotation:45,autoSkip:false},grid:{display:false}}}});
+    w8start.toLocaleDateString('en', { month: 'short', day: 'numeric' }) + ' – ' +
+    w8end.toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' });
+
+  const ds8 = [barSet(wa, '#1D9E75')];
+  if (overallAvg) ds8.push(dashLine(overallAvg, WEEKS_SHOW, '#EF9F27'));
+
+  makeChart('chart-weeks', 'bar', wl, ds8, {
+    scales: {
+      ...BASE_OPT.scales,
+      x: { ticks: { color: TICK_COLOR, maxRotation: 45, autoSkip: false }, grid: { display: false } },
+      y: { ticks: { color: TICK_COLOR, font: { family: "'DM Mono'" } }, grid: { color: GRID_COLOR } }
+    }
+  });
 }
 
 // ─── MONTHLY ──────────────────────────────────────────────────────────────────
