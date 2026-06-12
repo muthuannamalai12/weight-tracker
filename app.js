@@ -9,7 +9,7 @@ let sb;
 let entries   = {};
 let userPrefs = { unit: 'kg', height: 170, goalKg: 0 };
 let charts    = {};
-let weekOffset = 0, monthOffset = 0, yearOffset = 0;
+let weekOffset = 0, monthOffset = 0, yearOffset = 0, weeks8Offset = 0;
 
 // ─── LOAD PROGRESS ────────────────────────────────────────────────────────────
 function setProgress(pct, msg) {
@@ -69,6 +69,9 @@ window.addEventListener('DOMContentLoaded', async () => {
     hideLoading();
   }
 
+  // Auto-align ALL charts to most recent entry
+  autoAlignOffsets();
+
   setProgress(100, 'Ready');
 });
 
@@ -124,6 +127,7 @@ async function syncFromServer(background) {
 
     if (background) {
       // Quietly refresh UI with fresh data
+      autoAlignOffsets();
       applyPrefs();
       renderAll();
       setSyncing(false);
@@ -286,6 +290,29 @@ function renderEntries() {
   }).join('');
 }
 
+// ─── AUTO ALIGN ──────────────────────────────────────────────────────────────
+function autoAlignOffsets() {
+  const dates = sortedDates();
+  if (!dates.length) return;
+
+  const latestDate = new Date(dates[dates.length - 1]);
+  const now        = new Date();
+
+  // How many weeks back is the latest entry from today?
+  const diffMs   = now - latestDate;
+  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+  const diffWeeks = Math.floor(diffDays / 7);
+  const diffMonths = (now.getFullYear() - latestDate.getFullYear()) * 12
+                   + (now.getMonth() - latestDate.getMonth());
+  const diffYears  = now.getFullYear() - latestDate.getFullYear();
+
+  // Set each offset so the chart opens on the latest data
+  weekOffset   = -diffWeeks;       // top week chart
+  weeks8Offset = -diffWeeks;       // 8-week chart
+  monthOffset  = -diffMonths;      // monthly chart
+  yearOffset   = -diffYears;       // yearly chart
+}
+
 // ─── METRICS ──────────────────────────────────────────────────────────────────
 function renderMetrics() {
   const dates = sortedDates();
@@ -413,14 +440,25 @@ function renderWeekly() {
   if (avgV) ds.push(dashLine(avgV, 7, '#EF9F27'));
   makeChart('chart-week','bar', days, ds);
 
+  // 8 weeks chart — navigable, anchored at weeks8Offset
   const wl=[], wa=[];
-  for (let w=-7; w<=0; w++) {
+  // end week = weekOffset + weeks8Offset, start = that - 7
+  const endW = weeks8Offset;
+  const startW = endW - 7;
+  for (let w = startW; w <= endW; w++) {
     const {mon:wm} = weekRange(w);
     const vs=[];
     for (let i=0;i<7;i++){const d=new Date(wm);d.setDate(wm.getDate()+i);const e=entries[fmtDate(d)];if(e)vs.push(toDisplay(e.kg));}
     wl.push(wm.toLocaleDateString('en',{month:'short',day:'numeric'}));
     wa.push(avg(vs));
   }
+  // Update label
+  const w8start = weekRange(startW).mon;
+  const w8end   = weekRange(endW).sun;
+  const w8lbl   = document.getElementById('weeks8-label');
+  if (w8lbl) w8lbl.textContent =
+    w8start.toLocaleDateString('en',{month:'short',day:'numeric'}) + ' – ' +
+    w8end.toLocaleDateString('en',{month:'short',day:'numeric',year:'numeric'});
   makeChart('chart-weeks','line',wl,[lineSet(wa,'#1D9E75')],
     {scales:{...BASE_OPT.scales,x:{ticks:{color:TICK_COLOR,maxRotation:45,autoSkip:false},grid:{display:false}}}});
 }
@@ -527,6 +565,7 @@ function switchTab(name) {
   else if(name==='bmi')renderBMI();
 }
 function navWeek(d)  { weekOffset+=d;  renderWeekly(); }
+function navWeeks8(d){ weeks8Offset+=d; renderWeekly(); }
 function navMonth(d) { monthOffset+=d; renderMonthly(); }
 function navYear(d)  { yearOffset+=d;  renderYearly(); }
 
