@@ -290,7 +290,6 @@ function renderEntries() {
 function renderMetrics() {
   const dates = sortedDates();
   if (!dates.length) {
-    // Show colored placeholder dashes from the start
     ['m-latest','m-week','m-month','m-year','m-total'].forEach(id => {
       document.getElementById(id).textContent = '—';
     });
@@ -301,39 +300,60 @@ function renderMetrics() {
   }
   const latest = entries[dates[dates.length-1]].kg;
   const prev   = dates.length > 1 ? entries[dates[dates.length-2]].kg : null;
-  const now    = new Date();
+
+  // Use the most recent entry's date as reference — not today
+  // This way week/month/year avg always reflects actual data, not current calendar
+  const lastDate = new Date(dates[dates.length-1]);
+
+  // ── WEEK: Mon–Sun of the week containing the most recent entry ──
+  const lastDayOfWeek = lastDate.getDay(); // 0=Sun
+  const monOfLastWeek = new Date(lastDate);
+  monOfLastWeek.setDate(lastDate.getDate() - ((lastDayOfWeek + 6) % 7));
 
   const weekDates = [], prevWeekDates = [];
   for (let i = 0; i < 7; i++) {
-    const d = new Date(now); d.setDate(now.getDate() - ((now.getDay()+6)%7) + i);
+    const d = new Date(monOfLastWeek); d.setDate(monOfLastWeek.getDate() + i);
     weekDates.push(fmtDate(d));
-    const pd = new Date(d); pd.setDate(d.getDate()-7);
+    const pd = new Date(d); pd.setDate(d.getDate() - 7);
     prevWeekDates.push(fmtDate(pd));
   }
-  const mStr  = `${now.getFullYear()}-${pad(now.getMonth()+1)}`;
-  const pM    = new Date(now.getFullYear(), now.getMonth()-1, 1);
+
+  // ── MONTH: month of the most recent entry ──
+  const mStr  = `${lastDate.getFullYear()}-${pad(lastDate.getMonth()+1)}`;
+  const pM    = new Date(lastDate.getFullYear(), lastDate.getMonth()-1, 1);
   const pMStr = `${pM.getFullYear()}-${pad(pM.getMonth()+1)}`;
+
+  // ── YEAR: year of the most recent entry ──
+  const refYear  = lastDate.getFullYear();
+  const prevYear = refYear - 1;
 
   const wv  = weekDates.filter(d => entries[d]).map(d => entries[d].kg);
   const pwv = prevWeekDates.filter(d => entries[d]).map(d => entries[d].kg);
   const mv  = dates.filter(d => d.startsWith(mStr)).map(d => entries[d].kg);
   const pmv = dates.filter(d => d.startsWith(pMStr)).map(d => entries[d].kg);
-  const yv  = dates.filter(d => d.startsWith(now.getFullYear()+'')).map(d => entries[d].kg);
-  const pyv = dates.filter(d => d.startsWith((now.getFullYear()-1)+'')).map(d => entries[d].kg);
+  const yv  = dates.filter(d => d.startsWith(refYear+'')).map(d => entries[d].kg);
+  const pyv = dates.filter(d => d.startsWith(prevYear+'')).map(d => entries[d].kg);
 
-  function setM(id, val, dId, delta) {
+  function setM(id, val, dId, delta, noDataMsg) {
     document.getElementById(id).textContent = val !== null ? toDisplay(val).toFixed(1) + ' ' + unitStr() : '—';
-    if (dId && delta !== null) {
-      const icon = delta > 0 ? '↑' : delta < 0 ? '↓' : '→';
-      const cls  = delta === 0 ? 'delta-same' : delta > 0 ? 'delta-up' : 'delta-down';
-      document.getElementById(dId).innerHTML =
-        `<span class="${cls}">${icon} ${(delta > 0 ? '+' : '')}${toDisplay(Math.abs(delta)).toFixed(1)} ${unitStr()} vs prev</span>`;
+    if (dId) {
+      if (val === null) {
+        document.getElementById(dId).innerHTML = '<span style="color:#cbd5e1;font-weight:500;">' + (noDataMsg || 'no data') + '</span>';
+      } else if (delta !== null) {
+        const icon = delta > 0 ? '↑' : delta < 0 ? '↓' : '→';
+        const cls  = delta === 0 ? 'delta-same' : delta > 0 ? 'delta-up' : 'delta-down';
+        document.getElementById(dId).innerHTML =
+          `<span class="${cls}">${icon} ${(delta > 0 ? '+' : '')}${toDisplay(Math.abs(delta)).toFixed(1)} ${unitStr()} vs prev</span>`;
+      } else {
+        document.getElementById(dId).innerHTML = '<span style="color:#94a3b8;font-weight:500;">no prev data</span>';
+      }
     }
   }
+
   setM('m-latest', latest, 'm-latest-d', prev !== null ? latest - prev : null);
-  setM('m-week',  avg(wv),  'm-week-d',  avg(wv)  && avg(pwv)  ? avg(wv)-avg(pwv)   : null);
-  setM('m-month', avg(mv),  'm-month-d', avg(mv)  && avg(pmv)  ? avg(mv)-avg(pmv)   : null);
-  setM('m-year',  avg(yv),  'm-year-d',  avg(yv)  && avg(pyv)  ? avg(yv)-avg(pyv)   : null);
+  setM('m-week',  avg(wv),  'm-week-d',  avg(wv) != null && avg(pwv) != null ? avg(wv)-avg(pwv) : null);
+  setM('m-month', avg(mv),  'm-month-d', avg(mv) != null && avg(pmv) != null ? avg(mv)-avg(pmv) : null);
+  setM('m-year',  avg(yv),  'm-year-d',  avg(yv) != null && avg(pyv) != null ? avg(yv)-avg(pyv) : null);
 
   const delta = latest - entries[dates[0]].kg;
   document.getElementById('m-total').textContent = (delta >= 0 ? '+' : '') + toDisplay(delta).toFixed(1) + ' ' + unitStr();
