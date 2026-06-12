@@ -315,12 +315,17 @@
       <div class="chart-container" style="height:220px;"><canvas id="chart-week"></canvas></div>
     </div>
     <div class="card">
+      <div class="card-title"><i class="ti ti-chart-line"></i> Weekly averages trend</div>
       <div class="nav-row">
         <button class="nav-btn" onclick="navWeeks8(-1)"><i class="ti ti-chevron-left"></i></button>
         <span class="nav-label" id="weeks8-label"></span>
         <button class="nav-btn" onclick="navWeeks8(1)"><i class="ti ti-chevron-right"></i></button>
       </div>
       <div class="chart-container" style="height:200px;"><canvas id="chart-weeks"></canvas></div>
+      <div style="margin-top:8px;font-size:11px;color:#94a3b8;display:flex;gap:16px;">
+        <span><span style="display:inline-block;width:10px;height:3px;background:#1D9E75;border-radius:2px;vertical-align:middle;margin-right:4px;"></span>Week avg</span>
+        <span><span style="display:inline-block;width:10px;height:3px;background:#EF9F27;border-radius:2px;border-top:2px dashed #EF9F27;vertical-align:middle;margin-right:4px;"></span>Overall avg</span>
+      </div>
     </div>
   </div>
 
