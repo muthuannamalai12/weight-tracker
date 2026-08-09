@@ -321,7 +321,7 @@ function renderMetrics() {
       document.getElementById(id).textContent = '—';
     });
     ['m-latest-d','m-week-d','m-month-d','m-year-d','m-total-d'].forEach(id => {
-      document.getElementById(id).innerHTML = '<span style="color:#cbd5e1;font-weight:500;">no data yet</span>';
+      document.getElementById(id).innerHTML = '<span class="delta-same">no data yet</span>';
     });
     return;
   }
@@ -372,7 +372,7 @@ function renderMetrics() {
         document.getElementById(dId).innerHTML =
           `<span class="${cls}">${icon} ${(delta > 0 ? '+' : '')}${toDisplay(Math.abs(delta)).toFixed(1)} ${unitStr()} vs prev</span>`;
       } else {
-        document.getElementById(dId).innerHTML = '<span style="color:#94a3b8;font-weight:500;">no prev data</span>';
+        document.getElementById(dId).innerHTML = '<span class="delta-same">no prev data</span>';
       }
     }
   }
@@ -436,9 +436,14 @@ function renderWeekly() {
   const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   const vals = days.map((_,i) => { const d = new Date(mon); d.setDate(mon.getDate()+i); return entries[fmtDate(d)] ? toDisplay(entries[fmtDate(d)].kg) : null; });
   const avgV = avg(vals);
-  const ds = [barSet(vals,'#1D9E75')];
+  const ds = [lineSet(vals,'#1D9E75')];
   if (avgV) ds.push(dashLine(avgV, 7, '#EF9F27'));
-  makeChart('chart-week','bar', days, ds);
+  makeChart('chart-week','line', days, ds, {
+    scales:{...BASE_OPT.scales,
+      x:{ticks:{color:TICK_COLOR},grid:{display:false}},
+      y:{ticks:{color:TICK_COLOR,font:{family:"'DM Mono'"}},grid:{color:GRID_COLOR}}
+    }
+  });
 
   // Weekly averages trend — each bar = one week's average, navigable
   const WEEKS_SHOW = 8;
@@ -468,10 +473,10 @@ function renderWeekly() {
     w8start.toLocaleDateString('en', { month: 'short', day: 'numeric' }) + ' – ' +
     w8end.toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' });
 
-  const ds8 = [barSet(wa, '#1D9E75')];
+  const ds8 = [lineSet(wa, '#1D9E75')];
   if (overallAvg) ds8.push(dashLine(overallAvg, WEEKS_SHOW, '#EF9F27'));
 
-  makeChart('chart-weeks', 'bar', wl, ds8, {
+  makeChart('chart-weeks', 'line', wl, ds8, {
     scales: {
       ...BASE_OPT.scales,
       x: { ticks: { color: TICK_COLOR, maxRotation: 45, autoSkip: false }, grid: { display: false } },
@@ -492,10 +497,10 @@ function renderMonthly() {
     labels.push(d); vals.push(entries[key]?toDisplay(entries[key].kg):null);
   }
   const avgV=avg(vals);
-  const ds=[barSet(vals,'#1D9E75')];
+  const ds=[lineSet(vals,'#1D9E75')];
   if(avgV) ds.push(dashLine(avgV,days,'#EF9F27'));
-  makeChart('chart-month','bar',labels,ds,
-    {scales:{...BASE_OPT.scales,x:{ticks:{color:TICK_COLOR,autoSkip:true,maxTicksLimit:15},grid:{display:false}}}});
+  makeChart('chart-month','line',labels,ds,
+    {scales:{...BASE_OPT.scales,x:{ticks:{color:TICK_COLOR,autoSkip:true,maxTicksLimit:10},grid:{display:false}}}});
 
   const ml=[],ma=[];
   for(let i=-11;i<=0;i++){
@@ -519,11 +524,25 @@ function renderYearly() {
     const vs=sortedDates().filter(d=>d.startsWith(ms)).map(d=>toDisplay(entries[d].kg));
     return avg(vs);
   });
-  makeChart('chart-year','bar',months,[barSet(mAvgs,'#1D9E75')]);
+  makeChart('chart-year','line',months,[lineSet(mAvgs,'#1D9E75')]);
 
+  // All-time: show monthly averages for cleaner trend (not every single day)
   const allDates=sortedDates();
-  makeChart('chart-all','line',allDates,[lineSet(allDates.map(d=>toDisplay(entries[d].kg)),'#1D9E75')],
-    {scales:{...BASE_OPT.scales,x:{ticks:{color:TICK_COLOR,maxRotation:45,autoSkip:true,maxTicksLimit:14},grid:{display:false}}}});
+  // Get all months that have data
+  const monthSet = [...new Set(allDates.map(d => d.slice(0,7)))].sort();
+  const atLabels = monthSet.map(ms => {
+    const [y,m] = ms.split('-');
+    return new Date(y, m-1, 1).toLocaleDateString('en',{month:'short',year:'2-digit'});
+  });
+  const atVals = monthSet.map(ms => {
+    const vs = allDates.filter(d=>d.startsWith(ms)).map(d=>toDisplay(entries[d].kg));
+    return avg(vs);
+  });
+  makeChart('chart-all','line',atLabels,[lineSet(atVals,'#1D9E75')],
+    {scales:{...BASE_OPT.scales,
+      x:{ticks:{color:TICK_COLOR,maxRotation:45,autoSkip:true,maxTicksLimit:12},grid:{display:false}},
+      y:{ticks:{color:TICK_COLOR,font:{family:"'DM Mono'"}},grid:{color:GRID_COLOR}}
+    }});
 }
 
 // ─── BMI ──────────────────────────────────────────────────────────────────────
@@ -542,14 +561,22 @@ function updateBMI() {
   document.getElementById('bmi-cat').style.color=color;
   document.getElementById('bmi-marker').style.left=Math.min(100,Math.max(0,((bmi-15)/20)*100))+'%';
 
-  const last60=dates.slice(-60);
-  const bmiVals=last60.map(d=>{const kg=entries[d].kg;return+(kg/(hm*hm)).toFixed(2);});
+  // BMI history — monthly averages for cleaner view
+  const bmiMonths = [...new Set(dates.map(d=>d.slice(0,7)))].sort();
+  const bmiLabels = bmiMonths.map(ms => {
+    const [y,m] = ms.split('-');
+    return new Date(y,m-1,1).toLocaleDateString('en',{month:'short',year:'2-digit'});
+  });
+  const bmiVals = bmiMonths.map(ms => {
+    const vs = dates.filter(d=>d.startsWith(ms)).map(d=>+(entries[d].kg/(hm*hm)).toFixed(2));
+    return avg(vs);
+  });
   const ds=[lineSet(bmiVals,'#3266ad')];
   [{val:18.5,color:'#5DCAA5'},{val:25,color:'#EF9F27'},{val:30,color:'#D85A30'}]
-    .forEach(r=>ds.push(dashLine(r.val,last60.length,r.color)));
-  makeChart('chart-bmi','line',last60,ds,
+    .forEach(r=>ds.push(dashLine(r.val,bmiMonths.length,r.color)));
+  makeChart('chart-bmi','line',bmiLabels,ds,
     {scales:{y:{min:14,ticks:{color:TICK_COLOR,font:{family:"'DM Mono'"}},grid:{color:GRID_COLOR}},
-             x:{ticks:{color:TICK_COLOR,maxRotation:45,autoSkip:true,maxTicksLimit:10},grid:{display:false}}}});
+             x:{ticks:{color:TICK_COLOR,maxRotation:45,autoSkip:true,maxTicksLimit:12},grid:{display:false}}}});
 }
 
 function updateGoal() {
