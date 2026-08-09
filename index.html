@@ -42,7 +42,23 @@
       }
     }
 
-    body { font-family: 'DM Sans', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    body { font-family: 'DM Sans', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-text-size-adjust: 100%; }
+
+    /* ── MOBILE READABILITY ───────────────────────────────── */
+    @media (max-width: 600px) {
+      .app-title { font-size: 20px; }
+      .metric-label { font-size: 10px; }
+      .metric-value { font-size: 17px; }
+      .metric-delta { font-size: 11px; }
+      .metrics-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+      .tab { padding: 10px 12px; font-size: 13px; }
+      .card { padding: 1rem; }
+      .card-title { font-size: 13px; }
+      .nav-label { font-size: 13px; }
+      .entry-date { font-size: 12px; }
+      .entry-weight { font-size: 13px; }
+      .chart-container { touch-action: pan-y; }
+    }
 
     /* ── LOADING SCREEN ───────────────────────────────────── */
     #loading {
@@ -123,13 +139,18 @@
 
     /* ── METRICS ──────────────────────────────────────────── */
     .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 1.5rem; }
-    .metric-card { background: var(--surface2); border-radius: var(--radius); padding: 14px 16px; color: #ffffff; }
-    .metric-label { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
-    .metric-value { font-size: 20px; font-weight: 600; font-family: 'DM Mono', monospace; color: #ffffff; }
-    .metric-delta { font-size: 12px; margin-top: 4px; color: #cbd5e1; min-height: 16px; }
-    .delta-up   { color: #f87171 !important; font-weight: 600; }
-    .delta-down { color: #34d399 !important; font-weight: 600; }
-    .delta-same { color: #cbd5e1 !important; font-weight: 500; }
+    .metric-card { background: var(--surface2); border-radius: var(--radius); padding: 14px 16px; }
+    .metric-label { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+    .metric-value { font-size: 20px; font-weight: 600; font-family: 'DM Mono', monospace; color: var(--text); }
+    .metric-delta { font-size: 12px; margin-top: 4px; color: var(--text2); min-height: 16px; }
+    .delta-up   { color: #c0392b !important; font-weight: 600; }  /* dark red — visible on light+dark */
+    .delta-down { color: #16a085 !important; font-weight: 600; }  /* dark teal — visible on light+dark */
+    .delta-same { color: var(--text2) !important; font-weight: 500; }
+    @media (prefers-color-scheme: dark) {
+      .delta-up   { color: #f87171 !important; }   /* bright red on dark */
+      .delta-down { color: #34d399 !important; }   /* bright green on dark */
+      .delta-same { color: #94a3b8 !important; }
+    }
 
     /* ── TABS ─────────────────────────────────────────────── */
     .tabs { display: flex; border-bottom: 0.5px solid var(--border); margin-bottom: 1.5rem; overflow-x: auto; }
