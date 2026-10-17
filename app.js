@@ -308,7 +308,7 @@ function autoAlignOffsets() {
 
   // Set each offset so the chart opens on the latest data
   weekOffset   = -diffWeeks;       // top week chart
-  weeks8Offset = 0;               // 8-week chart always starts at latest data week
+  weeks8Offset = -diffWeeks;       // 8-week chart
   monthOffset  = -diffMonths;      // monthly chart
   yearOffset   = -diffYears;       // yearly chart
 }
@@ -445,69 +445,42 @@ function renderWeekly() {
     }
   });
 
-  // Weekly averages trend — one point per week (Mon–Sun), only weeks with data
-  // Build complete ordered list of weeks that have at least one entry
-  const allDts = sortedDates();
-  const seenKeys = new Set();
-  const weeksWithData = [];
-  allDts.forEach(d => {
-    const dt = new Date(d);
-    const mon = new Date(dt);
-    mon.setDate(dt.getDate() - ((dt.getDay()+6)%7));
-    const key = fmtDate(mon);
-    if (!seenKeys.has(key)) {
-      seenKeys.add(key);
-      const vs = [];
-      for (let i = 0; i < 7; i++) {
-        const dd = new Date(mon); dd.setDate(mon.getDate()+i);
-        const e = entries[fmtDate(dd)]; if (e) vs.push(toDisplay(e.kg));
-      }
-      weeksWithData.push({ key, mon: new Date(mon), wavg: avg(vs) });
+  // Weekly averages trend — each bar = one week's average, navigable
+  const WEEKS_SHOW = 8;
+  const endW   = weeks8Offset;
+  const startW = endW - (WEEKS_SHOW - 1);
+  const wl = [], wa = [];
+  for (let w = startW; w <= endW; w++) {
+    const { mon: wm } = weekRange(w);
+    const vs = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(wm); d.setDate(wm.getDate() + i);
+      const e = entries[fmtDate(d)]; if (e) vs.push(toDisplay(e.kg));
     }
-  });
-
-  const total = weeksWithData.length;
-  if (!total) { document.getElementById('weeks8-label').textContent = 'No data yet'; return; }
-
-  // weeks8Offset: 0 = last week with data, -1 = one week earlier, etc.
-  // Clamp so we never go before first week or after last week
-  weeks8Offset = Math.min(0, Math.max(-(total - 1), weeks8Offset));
-
-  // Single week index to display (navigate one week at a time)
-  const idx = total - 1 + weeks8Offset; // 0-based index into weeksWithData
-  const curWeek = weeksWithData[idx];
-  const prevWeek = idx > 0 ? weeksWithData[idx - 1] : null;
-
-  // Build Mon–Sun labels and per-day values for this one week
-  const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-  const dayVals = days.map((_, i) => {
-    const dd = new Date(curWeek.mon); dd.setDate(curWeek.mon.getDate()+i);
-    return entries[fmtDate(dd)] ? toDisplay(entries[fmtDate(dd)].kg) : null;
-  });
-
-  // Nav label: Mon – Sun of this week + avg
-  const sun = new Date(curWeek.mon); sun.setDate(curWeek.mon.getDate()+6);
-  const w8lbl = document.getElementById('weeks8-label');
-  if (w8lbl) {
-    const avgTxt = curWeek.wavg !== null ? ` · avg ${curWeek.wavg.toFixed(1)} ${unitStr()}` : '';
-    const vsPrev = prevWeek && prevWeek.wavg !== null && curWeek.wavg !== null
-      ? (() => { const d = curWeek.wavg - prevWeek.wavg; return (d>0?'↑':'↓') + ' ' + Math.abs(d).toFixed(1) + ' vs prev'; })()
-      : '';
-    w8lbl.textContent =
-      curWeek.mon.toLocaleDateString('en',{month:'short',day:'numeric'}) + ' – ' +
-      sun.toLocaleDateString('en',{month:'short',day:'numeric',year:'numeric'}) +
-      avgTxt + (vsPrev ? '  ' + vsPrev : '');
+    // Label: "Feb 23" style
+    wl.push(wm.toLocaleDateString('en', { month: 'short', day: 'numeric' }));
+    wa.push(avg(vs));
   }
 
-  const weekAvgVal = curWeek.wavg;
-  const ds8 = [lineSet(dayVals, '#1D9E75')];
-  if (weekAvgVal) ds8.push(dashLine(weekAvgVal, 7, '#EF9F27'));
+  // Overall average across all shown weeks (only non-null)
+  const overallAvg = avg(wa.filter(v => v !== null));
 
-  makeChart('chart-weeks','line', days, ds8, {
+  // Nav label: date range
+  const w8start = weekRange(startW).mon;
+  const w8end   = weekRange(endW).sun;
+  const w8lbl   = document.getElementById('weeks8-label');
+  if (w8lbl) w8lbl.textContent =
+    w8start.toLocaleDateString('en', { month: 'short', day: 'numeric' }) + ' – ' +
+    w8end.toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' });
+
+  const ds8 = [lineSet(wa, '#1D9E75')];
+  if (overallAvg) ds8.push(dashLine(overallAvg, WEEKS_SHOW, '#EF9F27'));
+
+  makeChart('chart-weeks', 'line', wl, ds8, {
     scales: {
       ...BASE_OPT.scales,
-      x: { ticks:{color:TICK_COLOR}, grid:{display:false} },
-      y: { ticks:{color:TICK_COLOR,font:{family:"'DM Mono'"}}, grid:{color:GRID_COLOR} }
+      x: { ticks: { color: TICK_COLOR, maxRotation: 45, autoSkip: false }, grid: { display: false } },
+      y: { ticks: { color: TICK_COLOR, font: { family: "'DM Mono'" } }, grid: { color: GRID_COLOR } }
     }
   });
 }
@@ -636,11 +609,7 @@ function switchTab(name) {
   else if(name==='bmi')renderBMI();
 }
 function navWeek(d)  { weekOffset+=d;  renderWeekly(); }
-function navWeeks8(d) {
-  // Move one data-week at a time, never beyond first or last week with data
-  weeks8Offset += d;
-  renderWeekly();
-}
+function navWeeks8(d){ weeks8Offset+=d; renderWeekly(); }
 function navMonth(d) { monthOffset+=d; renderMonthly(); }
 function navYear(d)  { yearOffset+=d;  renderYearly(); }
 
