@@ -1,3 +1,4 @@
+
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const SUPABASE_URL  = 'https://irzvzevwnozbgpvmptir.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_VjRoURDivyyToHVv0iKlZQ_qD8a8eTA';
@@ -307,7 +308,7 @@ function autoAlignOffsets() {
   const diffYears  = now.getFullYear() - latestDate.getFullYear();
 
   // Set each offset so the chart opens on the latest data
-  weekOffset   = -diffWeeks;       // top week chart
+  weekOffset   = -diffWeeks;       // top week chart — aligns to latest entry's week
   weeks8Offset  = 0;                // trend chart: always start at latest
   monthOffset  = -diffMonths;      // monthly chart
   yearOffset   = -diffYears;       // yearly chart
@@ -623,7 +624,17 @@ function switchTab(name) {
   else if(name==='yearly')renderYearly();
   else if(name==='bmi')renderBMI();
 }
-function navWeek(d)   { weekOffset+=d;  renderWeekly(); }
+function navWeek(d) {
+  // Block navigating forward past the week of the latest entry
+  const dates = sortedDates();
+  if (!dates.length) { weekOffset += d; renderWeekly(); return; }
+  const latestDate = new Date(dates[dates.length - 1]);
+  const now = new Date();
+  const diffDays = Math.round((now - latestDate) / (1000*60*60*24));
+  const minOffset = -Math.floor(diffDays / 7); // most forward allowed (latest data week)
+  weekOffset = Math.min(minOffset, weekOffset + d);
+  renderWeekly();
+}
 function navWeeks8(d) { weeks8Offset = Math.min(0, weeks8Offset+d); renderWeekly(); }
 
 function navMonth(d) { monthOffset+=d; renderMonthly(); }
